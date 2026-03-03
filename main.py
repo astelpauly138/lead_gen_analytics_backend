@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+import os
 
 from routes.auth import router as auth_router
 from routes.dashboard import router as dashboard_router
@@ -26,7 +27,7 @@ async def log_post_bodies(request: Request, call_next):
         print(f">>> 422 on {request.url.path} - check body above")
     return response
 
-# CORS middleware - allow all origins (for Render deployment)
+# CORS middleware - allow all origins (suitable for Render deployment)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],       # Allow all origins
@@ -51,3 +52,10 @@ app.include_router(delete_leads_router)
 @app.get("/health")
 def health_check():
     return {"status": "healthy"}
+
+
+# Run Uvicorn with Render-compatible port
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))  # Use Render's PORT or default 8000
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
