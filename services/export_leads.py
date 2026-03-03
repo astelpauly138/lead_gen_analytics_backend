@@ -80,7 +80,7 @@ def export_approved_leads(user_id: str):
     if not data:
         raise HTTPException(status_code=404, detail="No approved leads found")
 
-    file_name = "leads_data.xlsx"
+    file_name = "leads_approved_data.xlsx"
     create_excel(data, file_name)
 
     return FileResponse(
