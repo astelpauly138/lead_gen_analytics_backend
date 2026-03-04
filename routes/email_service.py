@@ -5,7 +5,7 @@ resend.api_key = os.getenv("RESEND_API_KEY")
 
 def send_admin_approval_email(user_id, first_name, last_name, email):
     # Use backend URL from environment variable or default to localhost
-    backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
+    backend_url = os.getenv("BACKEND_URL", "https://lead-gen-analytics-backend.onrender.com")
     approve_link = f"{backend_url}/auth/approve/{user_id}"
 
     admin_email = os.getenv("ADMIN_EMAIL", "a.pauly@analytica-data.com")
