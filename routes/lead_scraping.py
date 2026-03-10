@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
@@ -30,7 +32,7 @@ class ScrapedLeads(BaseModel):
     campaign_id: str
     user_id: str
     leads: List[Lead]
-
+logging.info("-------------------------------")
 
 @router.post("/lead-scraping")
 def insert_scraped_leads(payload: ScrapedLeads):
@@ -60,6 +62,8 @@ def insert_scraped_leads(payload: ScrapedLeads):
                 "address": lead.Address,
                 "promotion_status": lead.Promotion_Status
             }
+            logging.info(f"Inserting lead: {lead_row}")
+            logging.info("-------------------------------")
 
             supabase.table("leads").insert(lead_row).execute()
             inserted_leads.append(lead_row)  # keep track of inserted leads

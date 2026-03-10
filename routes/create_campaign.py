@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, HttpUrl
-from typing import List
+from pydantic import BaseModel
+from typing import List, Optional
 from supabase_client import supabase
 from routes.activity_log import insert_activity_log
 from datetime import datetime
@@ -20,27 +20,22 @@ class CampaignCreate(BaseModel):
     job_titles: List[str]
     requested_leads: int
     status: str
+    black_listed_domains: Optional[List[str]] 
 
 
 # Email content request model
 class EmailContentCreate(BaseModel):
-    subject: str
-    body: str
-    redirect_url: HttpUrl  # validates URL automatically
-
-
-# Combined request model (campaign + email)
-class CampaignWithEmailCreate(BaseModel):
-    campaign: CampaignCreate
-    email: EmailContentCreate
+    subject: Optional[str] = None
+    body: Optional[str] = None
+    modify_with_ai: bool = False
 
 
 @router.post("/campaigns/{user_id}")
-def create_campaign(user_id: str, payload: CampaignWithEmailCreate):
+def create_campaign(user_id: str, payload: CampaignCreate):
     try:
 
         # 1️⃣ Prepare campaign data
-        campaign_data = payload.campaign.model_dump(mode='json')
+        campaign_data = payload.model_dump(mode='json')
         campaign_data["user_id"] = user_id
         campaign_data["created_at"] = datetime.utcnow().isoformat()
 
@@ -53,21 +48,7 @@ def create_campaign(user_id: str, payload: CampaignWithEmailCreate):
         inserted_campaign = campaign_result.data[0]
         campaign_id = inserted_campaign["id"]
 
-        # 3️⃣ Prepare email content data
-        email_data = payload.email.model_dump(mode='json')
-        email_data["campaign_id"] = campaign_id
-        email_data["content"] = email_data.pop("body")  # rename body → content
-        email_data["redirect_url"] = str(email_data["redirect_url"])  # ensure plain string
-
-        # 4️⃣ Insert email content
-        email_result = supabase.table("email_contents").insert(email_data).execute()
-
-        if not email_result.data:
-            raise HTTPException(status_code=500, detail="Failed to insert email content")
-
-        inserted_email = email_result.data[0]
-
-        # 5️⃣ Insert activity log
+        # 4️⃣ Insert activity log
         activity_log = insert_activity_log(
             user_id=user_id,
             campaign_id=campaign_id,
@@ -75,12 +56,49 @@ def create_campaign(user_id: str, payload: CampaignWithEmailCreate):
             metadata=campaign_data
         )
 
-        # 6️⃣ Return response
+        # 5️⃣ Return response
         return {
             "campaign": inserted_campaign,
-            "email_content": inserted_email,
             "activity_log": activity_log
         }
 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+@router.get("/saved_email_contents/{user_id}")
+def get_email_contents(user_id: str, campaign_id: str):
+    try:
+        result = supabase.table("email_contents") \
+            .select("id, subject, content, modify_with_ai, created_at") \
+            .eq("user_id", user_id) \
+            .eq("campaign_id", campaign_id) \
+            .order("created_at", desc=True) \
+            .execute()
+        return {"email_contents": result.data or []}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/email_contents/{user_id}")
+def create_email_content(user_id: str, campaign_id: str, payload: EmailContentCreate):
+    try:
+        if not payload.subject or not payload.body:
+            raise HTTPException(status_code=400, detail="subject and body are required")
+
+        email_data = {
+            "campaign_id": campaign_id,
+            "user_id": user_id,
+            "subject": payload.subject,
+            "content": payload.body,
+            "modify_with_ai": payload.modify_with_ai,
+        }
+
+        email_result = supabase.table("email_contents").insert(email_data).execute()
+
+        if not email_result.data:
+            raise HTTPException(status_code=500, detail="Failed to insert email content")
+
+        return {"email_content": email_result.data[0]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

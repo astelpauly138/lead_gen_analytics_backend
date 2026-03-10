@@ -15,6 +15,12 @@ from routes.leads_approved import router as leads_approved_router
 from routes.profile import router as profile_router
 from services.export_leads import router as export_router
 from routes.delete_leads import router as delete_leads_router
+from services.email_verification import router as email_config_router
+from services.save_signature import router as signature_router
+from routes.user_subscriptions import router as user_subscriptions_router
+from routes.user_about import router as user_about_router
+from routes.user_documents import router as user_documents_router
+from routes.modify_content_check import router as modify_content_check_router
 
 app = FastAPI()
 
@@ -24,7 +30,7 @@ async def log_post_bodies(request: Request, call_next):
     if request.method == "POST":
         body = await request.body()
         print(f"\n>>> POST {request.url.path}")
-        print(f">>> BODY: {body.decode('utf-8')}")
+        print(f">>> BODY: {body.decode('utf-8', errors='replace')}")
     response = await call_next(request)
     if response.status_code == 422:
         print(f">>> 422 on {request.url.path} - check body above")
@@ -50,6 +56,12 @@ app.include_router(leads_approved_router)
 app.include_router(profile_router)
 app.include_router(export_router)
 app.include_router(delete_leads_router)
+app.include_router(email_config_router)
+app.include_router(signature_router)
+app.include_router(user_subscriptions_router)
+app.include_router(user_about_router)
+app.include_router(user_documents_router)
+app.include_router(modify_content_check_router)
 
 # Health check endpoint
 @app.get("/health")

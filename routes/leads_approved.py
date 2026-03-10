@@ -21,6 +21,7 @@ class LeadsApprovalRequest(BaseModel):
     user_id: str
     campaign_id: str
     type: str  # email event type (dynamic)
+    email_content_id: Optional[str] = None
     leads: List[LeadApproval]
 
 
@@ -60,6 +61,7 @@ def approve_leads(payload: LeadsApprovalRequest):
                     "campaign_id": payload.campaign_id,
                     "lead_id": lead.lead_id,
                     "event_type": payload.type,
+                    "email_content_id": payload.email_content_id,
                     "created_at": datetime.utcnow().isoformat()
                 }
                 supabase.table("email_events").insert(email_event).execute()
