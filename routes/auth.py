@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, EmailStr
 from supabase_client import supabase
@@ -266,6 +266,39 @@ def approve_user(user_id: str):
                 </body>
             </html>
         """, status_code=500)
+
+# --- Notify admin of new signup (called by Supabase DB webhook on profiles INSERT) ---
+@router.post("/notify-google-signup")
+async def notify_google_signup(request: Request):
+    body = await request.json()
+
+    # Supabase webhook sends: { "type": "INSERT", "record": { ...profile row... } }
+    record = body.get("record") or body
+    user_id = record.get("id") or record.get("user_id")
+
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+
+    first_name = record.get("first_name", "")
+    last_name = record.get("last_name", "")
+
+    # Fetch email from auth.users
+    try:
+        auth_user = supabase.auth.admin.get_user_by_id(user_id)
+        email = auth_user.user.email if auth_user and auth_user.user else "N/A"
+    except Exception:
+        email = "N/A"
+
+    # Send admin approval email
+    try:
+        from routes.email_service import send_admin_approval_email
+        send_admin_approval_email(user_id, first_name, last_name, email)
+    except Exception as e:
+        print(f"Failed to send admin approval email: {e}")
+        raise HTTPException(status_code=500, detail=f"Email failed: {e}")
+
+    return {"message": "Admin notified successfully"}
+
 
 # --- Login endpoint ---
 @router.post("/login")
